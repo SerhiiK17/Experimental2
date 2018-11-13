@@ -1,0 +1,283 @@
+class Graph:
+    
+    def __init__(self, vertices = [], adj_list = {}):
+        self.vertices = vertices
+        self.adj_list = adj_list
+    
+    def add_vertex(self, vertex):
+        self.vertices.append(vertex)
+        self.adj_list[vertex] = []
+    
+    def add_undirected_edge(self, first_node, second_node):
+        self.adj_list[first_node].append(second_node)
+        self.adj_list[second_node].append(first_node)
+    
+    def add_directed_edge(self, source, target):
+        self.adj_list[source].append(target)
+
+
+def BFS(graph, src_node):
+    
+    level = {src_node : 0 }
+    parents = {src_node : None}    
+    i = 1
+    frontier = [src_node]
+    
+    while frontier:
+        next_frontier = []
+        for u in frontier:
+            for v in graph.adj_list[u]:
+                if v not in level:
+                    level[v] = i
+                    parents[v] = u
+                    next_frontier.append(v)
+        frontier = next_frontier
+        i += 1
+    
+    return level, parents
+
+
+def print_path(parents_list, node, source):
+    
+    path_list = []
+    while True:
+        path_list.append(node)
+        
+        tmp = parents_list[node]
+        if tmp is None:
+            if node != source:
+                return 'There is no such path'
+            else:
+                break
+        else:
+            node = tmp
+            
+    l = len(path_list)
+    
+    return [path_list[l - 1 - i] for i in range(l)]
+
+
+def DFS(graph):
+    
+    time = 0
+    discovery_time = {}
+    finish_time = {}
+    parents = {}
+    
+    for s in graph.vertices:
+        if s not in parents:
+            parents[s] = None
+            time, discovery_time, finish_time, parents = \
+                DFS_visit(graph, s, time, discovery_time, finish_time, parents)
+    
+    return discovery_time, finish_time, parents
+
+
+def DFS_visit(graph, s, time, discovery_time, finish_time, parents):
+    
+    time += 1
+    discovery_time[s] = time
+    
+    for v in graph.adj_list[s]:
+        if v not in parents:
+            parents[v] = s
+            time, discovery_time, finish_time, parents = \
+                DFS_visit(graph, v, time, discovery_time, finish_time, parents)
+        '''elif v not in finish_time:
+            print('There is a circle in this graph')'''
+    
+    time += 1
+    finish_time[s] = time
+    
+    return time, discovery_time, finish_time, parents
+
+
+def graph_transpose(graph):
+    
+    transposed_graph = Graph()
+    transposed_graph.vertices = graph.vertices
+    
+    for v in graph.vertices:
+        transposed_graph.adj_list[v] = []
+    
+    for v in graph.vertices:
+        for adj in graph.adj_list[v]:
+            transposed_graph.adj_list[adj].append(v)
+    
+    return transposed_graph
+
+
+def DFS_dfto(graph, ts_list):
+    
+    vertices_scc = {}
+    
+    time = 0
+    discovery_time = {}
+    finish_time = {}
+    parents = {}
+    
+    j = 0
+    for s in ts_list:
+        if s not in parents:
+            parents[s] = None
+            vertices_scc, time, discovery_time, finish_time, parents = \
+                DFS_visit_scc(graph, s, vertices_scc, j, time, 
+                    discovery_time, finish_time, parents)
+            j += 1
+    
+    return vertices_scc
+
+
+def DFS_visit_scc(graph, s, ver_scc, ind, time, discovery_time, 
+                   finish_time, parents):
+    
+    time += 1
+    discovery_time[s] = time
+    
+    ver_scc[s] = ind
+    
+    for v in graph.adj_list[s]:
+        if v not in parents:
+            parents[v] = s
+            ver_scc, time, discovery_time, finish_time, parents = \
+                DFS_visit_scc(graph, v, ver_scc, ind, time, 
+                    discovery_time, finish_time, parents)
+        '''elif v not in finish_time:
+            print('There is a circle in this graph')'''
+    
+    time += 1
+    finish_time[s] = time
+
+    return ver_scc, time, discovery_time, finish_time, parents
+
+
+def scc(graph):
+    
+    ts_list = topological_sort(graph)
+    graph_tmp = graph_transpose(graph)
+    vertices_scc = DFS_dfto(graph_tmp, ts_list)
+    # Find the list of scc
+    scc_number = 0
+    for u in vertices_scc:
+        if scc_number < vertices_scc[u]:
+            scc_number = vertices_scc[u]
+    
+    scc_list = {}
+    for u in range(scc_number + 1):
+        scc_list[u] = []
+    
+    for u in vertices_scc:
+        scc_list[vertices_scc[u]].append(u)
+    
+    # Find the adjacency list of scc    
+    scc_adj_list = {}
+    for i in scc_list:
+        # In following, probably better to use dict instead lists, 
+        # to save linear time dependence
+        scc_adj_list[i] = []
+        for j in scc_list[i]:
+            for k in graph.adj_list[j]:
+                if vertices_scc[k] != i and vertices_scc[k] \
+                        not in scc_adj_list[i]:
+                    scc_adj_list[i].append(vertices_scc[k])
+    
+    return scc_list, scc_adj_list
+
+
+def topological_sort(graph):
+    
+    _,finish_time,_ = DFS(graph)
+    sorted_list = [0] * len(finish_time)
+    
+    i = len(finish_time) - 1
+    for key in finish_time:
+        sorted_list[i] = key
+        i -= 1
+    
+    return sorted_list
+
+
+def count_simple_paths(graph, start, end, ts_list):
+    
+    count_list = {}
+    d = start - end
+    
+    for i in range(len(ts_list)):
+        if ts_list[i] == start:
+            start_ind = i
+        if ts_list[i] == end:
+            end_ind = i
+    
+    if start_ind > end_ind:
+        return 'There is no simple paths between those nodes'
+    elif start_ind == end_ind:
+        return 1
+    
+    for vert in graph.vertices:
+        count_list[vert] = 0
+        for adj in graph.adj_list[vert]:
+            if adj == end:
+                count_list[vert] = 1
+    
+    for j in range(end_ind, start_ind - 1, - 1):
+        tmp_count = 0
+        for k in graph.adj_list[ts_list[j]]:
+            tmp_count += count_list[k]
+        count_list[ts_list[j]] += tmp_count
+    
+    return count_list[start]
+
+
+def main():
+    
+    our_graph = Graph()
+    '''a = [int(elem) for elem in input('Vertices:').split(' ') if elem != '']
+    for i in a:
+        our_graph.add_vertex(int(i))
+    
+    while True:
+        b = input('Edge')
+        i = 1
+        if b == '':
+            break
+        else:
+            b = [int(elem) for elem in b.split(' ') if elem != '']
+            our_graph.add_directed_edge(b[0], b[1])'''
+    
+    our_graph.vertices, our_graph.adj_list = [1, 2, 3, 4], \
+            {1: [2, 4], 2: [1, 3], 3: [], 4: [2, 3]}
+        
+    
+    print(our_graph.vertices, our_graph.adj_list)
+    
+    ''''source = int(input('The source element is'))
+    level_list, parents_list = BFS(our_graph, source)
+    dest = int(input('Destination is'))
+    print('Distance from source to destination is', level_list[dest])
+    print('Path:', print_path(parents_list, dest, source))
+    
+    dt, ft, pr = DFS(our_graph)
+    
+    print(dt, ft, pr)
+    
+    ts = topological_sort(our_graph)
+    print('topological_sort', ts)
+    
+    node1, node2 = input('What nodes to chose for counting '
+                         'simple paths between?').split(' ')
+    
+    print('Number of simple paths between {} and {} ='.format(1, 
+        3), count_simple_paths(our_graph, 1, 3, ts))
+
+    transposed_graph = graph_transpose(our_graph)
+    print('Graph transposed', transposed_graph.vertices, 
+          transposed_graph.adj_list)'''
+    
+    print('scc', scc(our_graph))
+
+
+main()
+
+
+
+###___
